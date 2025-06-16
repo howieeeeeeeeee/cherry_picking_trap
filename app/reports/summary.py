@@ -31,7 +31,9 @@ df = get_simulation_data(db, selected_lamb, selected_scale, K_range)
 
 if not df.empty:
     # Create and display the plots
-    welfare_fig, alpha_fig, q_fig = plot_simulation_results(df)
+    welfare_fig, alpha_fig, q_fig, moderate_fig = plot_simulation_results(
+        df, lamb=selected_lamb, scale=selected_scale
+    )
 
     # Display welfare plot
     st.plotly_chart(welfare_fig, use_container_width=True)
@@ -39,6 +41,7 @@ if not df.empty:
     # Display alpha and q plots vertically
     st.plotly_chart(alpha_fig, use_container_width=True)
     st.plotly_chart(q_fig, use_container_width=True)
+    st.plotly_chart(moderate_fig, use_container_width=True)
 
     # Display raw data in an expander
     with st.expander("View Raw Data"):

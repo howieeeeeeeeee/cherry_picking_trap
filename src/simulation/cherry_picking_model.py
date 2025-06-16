@@ -310,4 +310,5 @@ class CherryPickingModel:
         return {
             "proposer_expected_payoff": float(E_pi_P),
             "responder_expected_payoff": float(E_pi_R),
+            "percent_of_moderate_policies": float(np.mean(sim["q"] <= q_star)),
         }

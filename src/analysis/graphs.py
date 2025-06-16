@@ -18,15 +18,19 @@ CASE_COLORS = {
 }
 
 
-def plot_simulation_results(df: pd.DataFrame) -> tuple[go.Figure, go.Figure, go.Figure]:
+def plot_simulation_results(
+    df: pd.DataFrame, lamb: float = None, scale: float = None
+) -> tuple[go.Figure, go.Figure, go.Figure, go.Figure]:
     """
     Create plots for simulation results including welfare and equilibrium values.
 
     Args:
         df: DataFrame containing simulation results
+        lamb: Lambda value for the title
+        scale: Scale value for the title
 
     Returns:
-        tuple[go.Figure, go.Figure, go.Figure]: Tuple of figures for welfare, alpha_star, and q_star
+        tuple[go.Figure, go.Figure, go.Figure, go.Figure]: Tuple of figures for welfare, alpha_star, q_star, and moderate policies
     """
 
     marker_size = 8 if len(df["K"]) < 60 else 4
@@ -97,8 +101,13 @@ def plot_simulation_results(df: pd.DataFrame) -> tuple[go.Figure, go.Figure, go.
                 )
             )
 
+    # Create title with lambda and scale if provided
+    title = "Ex-Ante Welfare by K"
+    if lamb is not None and scale is not None:
+        title = f"Ex-Ante Welfare by K (λ={lamb}, μ={scale})"
+
     welfare_fig.update_layout(
-        title="Ex-Ante Welfare by K",
+        title=title,
         xaxis_title="K",
         yaxis_title="Expected Payoff",
         template="plotly_white",
@@ -157,4 +166,29 @@ def plot_simulation_results(df: pd.DataFrame) -> tuple[go.Figure, go.Figure, go.
         margin=dict(t=30, b=10),  # Reduce vertical margins
     )
 
-    return welfare_fig, alpha_fig, q_fig
+    # Create moderate policies percentage plot
+    moderate_fig = go.Figure()
+    moderate_fig.add_trace(
+        go.Scatter(
+            x=df["K"],
+            y=df["percent_of_moderate_policies"] * 100,  # Convert to percentage
+            mode="lines+markers",
+            name="Moderate Policies %",
+            line=dict(color="#636363", width=2),  # Modern grey
+            marker=dict(
+                size=8,
+                symbol=[CASE_MARKERS[case] for case in df["case"]],
+                color=[CASE_COLORS[case] for case in df["case"]],
+            ),
+        )
+    )
+    moderate_fig.update_layout(
+        title="Percentage of Moderate Policies by K",
+        xaxis_title="K",
+        yaxis_title="Percentage (%)",
+        template="plotly_white",
+        height=150,
+        margin=dict(t=30, b=10),  # Reduce vertical margins
+    )
+
+    return welfare_fig, alpha_fig, q_fig, moderate_fig

@@ -9,6 +9,9 @@ scipy = "*"
 pandas = "*"
 ipykernel = "*"
 seaborn = "*"
+pymongo = "*"
+plotly = "*"
+streamlit = "*"
 
 [dev-packages]
 

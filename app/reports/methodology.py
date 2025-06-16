@@ -1,8 +1,4 @@
 import streamlit as st
-from app._utils.db_setup import db
-from src.data_management.mongo_handler import get_simulation_results_filters
-from src.analysis.tables import get_simulation_data
-from src.analysis.graphs import plot_simulation_results
 
 st.markdown(
     r"""

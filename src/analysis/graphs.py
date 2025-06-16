@@ -29,7 +29,7 @@ def plot_simulation_results(df: pd.DataFrame) -> tuple[go.Figure, go.Figure, go.
         tuple[go.Figure, go.Figure, go.Figure]: Tuple of figures for welfare, alpha_star, and q_star
     """
 
-    marker_size = 8 if len(df["K"]) < 50 else 3
+    marker_size = 8 if len(df["K"]) < 60 else 4
     # Create welfare line plot
     welfare_fig = go.Figure()
 
@@ -79,6 +79,7 @@ def plot_simulation_results(df: pd.DataFrame) -> tuple[go.Figure, go.Figure, go.
                 symbol=[CASE_MARKERS[case] for case in df["case"]],
                 color=[CASE_COLORS[case] for case in df["case"]],
             ),
+            visible="legendonly",
         )
     )
 

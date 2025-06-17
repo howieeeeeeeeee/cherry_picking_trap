@@ -9,7 +9,7 @@ This module numerically solves for the Bayes-Nash Equilibrium of the Cherry-Pick
 ---
 #### 1. Monte Carlo Simulation
 
-The core of the methodology is to approximate the space of all possible outcomes. We generate a large number $(N=10,000,000)$ of policy "baskets," $B = \{x_1, ..., x_K\}$, where each policy $x_i$ is drawn i.i.d. from a specified probability distribution $\phi$. For each simulated basket, we pre-calculate and store the fundamental values:
+The core of the methodology is to approximate the space of all possible outcomes. We generate a large number $(N=1,000,000)$ of policy "baskets," $B = \{x_1, ..., x_K\}$, where each policy $x_i$ is drawn i.i.d. from a specified probability distribution $\phi$. For each simulated basket, we pre-calculate and store the fundamental values:
 
 * **Cherry-Picked Policy:** $C(B) := \max_{x \in B} \pi_P(x)$
 * **Moderated Policy:** $M(B) := \max_{x \in B: \pi_R(x) \geq 0} \pi_P(x)$ (if no palatable policy is found, $M(B) = C(B)$)

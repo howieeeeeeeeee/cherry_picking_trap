@@ -97,6 +97,9 @@ def calculate_welfare_numba(
     total_responder_payoff = 0.0
     n = len(q_values)
 
+    if alpha_star is None:
+        alpha_star = 0
+
     for i in prange(n):
         # Determine Proposer's action for this simulated basket
         is_moderate = q_values[i] <= q_star
@@ -106,18 +109,26 @@ def calculate_welfare_numba(
             # Proposer's payoff: gets pi_p_m if Responder accepts.
             # Informed R always accepts. Uninformed R accepts with prob alpha_star.
             # Total acceptance probability = lamb * 1 + (1 - lamb) * alpha_star
-            total_proposer_payoff += pi_p_m[i] * (lamb + (1 - lamb) * alpha_star)
 
-            # Responder's payoff: gets pi_r_m if she accepts.
-            total_responder_payoff += pi_r_m[i] * (lamb + (1 - lamb) * alpha_star)
+            ## firstly, check if pi_r_m is non-negative
+            if pi_r_m[i] >= 0:
+                total_proposer_payoff += pi_p_m[i] * (lamb + (1 - lamb) * alpha_star)
+                total_responder_payoff += pi_r_m[i] * (lamb + (1 - lamb) * alpha_star)
+            else:
+                total_proposer_payoff += pi_p_m[i] * (1 - lamb) * alpha_star
+                total_responder_payoff += pi_r_m[i] * (1 - lamb) * alpha_star
+
         else:
             # --- Proposer chooses to Cherry-Pick ---
             # Proposer's payoff: gets pi_p_c only if R is UNINFORMED and ACCEPTS.
             # Informed R rejects (payoff = 0).
-            total_proposer_payoff += pi_p_c[i] * ((1 - lamb) * alpha_star)
 
-            # Responder's payoff: gets pi_r_c only if she is UNINFORMED and ACCEPTS.
-            total_responder_payoff += pi_r_c[i] * ((1 - lamb) * alpha_star)
+            if pi_r_c[i] >= 0:
+                total_proposer_payoff += pi_p_c[i] * (lamb + (1 - lamb) * alpha_star)
+                total_responder_payoff += pi_r_c[i] * (lamb + (1 - lamb) * alpha_star)
+            else:
+                total_proposer_payoff += pi_p_c[i] * (1 - lamb) * alpha_star
+                total_responder_payoff += pi_r_c[i] * (1 - lamb) * alpha_star
 
     # Return the average payoff per simulation
     return total_proposer_payoff / n, total_responder_payoff / n
@@ -284,16 +295,6 @@ class CherryPickingModel:
 
         # Retrieve the raw simulation data arrays
         sim = self.simulation_arrays
-
-        if alpha_star is None:
-            return {
-                "proposer_expected_payoff": float(
-                    self.theta - self.equilibrium_results["E_pi_r_m"]
-                ),
-                "responder_expected_payoff": float(
-                    self.equilibrium_results["E_pi_r_m"]
-                ),
-            }
 
         # Call the fast Numba function to do the heavy lifting
         E_pi_P, E_pi_R = calculate_welfare_numba(

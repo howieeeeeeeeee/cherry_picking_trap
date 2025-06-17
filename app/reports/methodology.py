@@ -46,11 +46,29 @@ is approximated using the simulation data. A numerical root-finding algorithm (b
 ---
 #### 3. Ex-Ante Welfare Calculation
 
-With the equilibrium strategies solved, the module calculates the ex-ante expected payoffs, $E[\pi_P]$ and $E[\pi_R]$. This is achieved by performing a final pass over the $N$ simulated baskets. For each basket, we first determine the Proposer's action by applying the solved equilibrium rule:
+With the equilibrium strategies solved, the module calculates the ex-ante expected payoffs $E[\pi_P]$ and $E[\pi_R]$ through a Monte Carlo pass over the $N$ simulated baskets. For each basket $B$:
 
-* The Proposer **moderates** if $Q(B) \leq q_{eq}$.
-* The Proposer **cherry-picks** if $Q(B) > q_{eq}$.
+1. **Determine Proposer's Action:**
+   * If $Q(B) \leq q^*$: moderate and select $M(B)$
+   * If $Q(B) > q^*$: cherry-pick and select $C(B)$
 
-Based on this action, the final payoffs for that basket are calculated by weighting them with the probabilities of acceptance, which critically depend on the solved $\alpha^*$ and the given $\lambda$. The average of these payoffs across all $N$ simulations yields the final ex-ante welfare results.
+2. **Calculate Acceptance Probabilities:**
+   
+   The acceptance depends on the Responder's payoff and information:
+   
+   * If $\pi_R \geq 0$: acceptance probability = $\lambda + (1-\lambda) \cdot \alpha^*$
+   * If $\pi_R < 0$: acceptance probability = $(1-\lambda) \cdot \alpha^*$
+   
+   (Informed Responders reject negative payoffs; uninformed Responders cannot observe them)
+
+3. **Expected Payoffs:**
+   
+   For each basket, both players' expected payoffs equal their respective payoff times the acceptance probability:
+   
+   $E[\pi_i(B)] = \pi_i(B) \times \text{acceptance probability}$
+
+4. **Final Welfare:**
+   
+   $E[\pi_P] = \frac{1}{N} \sum_{i=1}^{N} E[\pi_P(B_i)], \quad E[\pi_R] = \frac{1}{N} \sum_{i=1}^{N} E[\pi_R(B_i)]$
 """
 )

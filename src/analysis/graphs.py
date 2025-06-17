@@ -11,10 +11,10 @@ CASE_MARKERS = {
 }
 
 CASE_COLORS = {
-    "Case A: Always Bad": "#969696",  # Medium grey
+    "Case A: Always Bad": "#bdbdbd",  # Medium grey
     "Case B: Always Good": "#bdbdbd",  # Light grey
-    "Case C: Interesting Case": "#d9d9d9",  # Very light grey
-    "Case D: Always Informed": "#636363",  # Dark grey
+    "Case C: Interesting Case": "#bdbdbd",  # Very light grey
+    "Case D: Always Informed": "#bdbdbd",  # Dark grey
 }
 
 

@@ -38,4 +38,5 @@ ENV/
 .ipynb_checkpoints
 
 # Project specific
-!data/.gitkeep 
+!data/.gitkeep *.ipynb
+*.ipynb

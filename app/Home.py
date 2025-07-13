@@ -12,12 +12,14 @@ methodology = st.Page(
     "reports/methodology.py", title="Methodology", icon=":material/dashboard:"
 )
 
+anecdote = st.Page("reports/anecdote.py", title="Anecdote", icon=":material/history:")
+
 simulate = st.Page("tools/simulate.py", title="Simulate", icon=":material/calculate:")
 
 
 pg = st.navigation(
     {
-        "Reports": [summary, methodology],
+        "Reports": [summary, methodology, anecdote],
         # "Tools": [simulate],
     }
 )

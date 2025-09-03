@@ -183,7 +183,7 @@ def plot_simulation_results(
         )
     )
     moderate_fig.update_layout(
-        title="Percentage of Moderate Policies by K",
+        title="Percentage of Moderate Policies (q < q*) by K",
         xaxis_title="K",
         yaxis_title="Percentage (%)",
         template="plotly_white",

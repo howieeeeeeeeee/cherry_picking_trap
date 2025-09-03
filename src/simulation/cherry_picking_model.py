@@ -11,8 +11,50 @@ def process_all_simulations_numba(
     num_simulations, K, theta, dist_name, scale=1.0, lam=1.0, low=0.0, high=1.0
 ):
     """
-    Processes all simulations in one go using Numba, including random generation.
-    Correctly handles payoffs when no palatable policies exist.
+    Process Monte Carlo simulations for the cherry-picking model using parallel computation.
+
+    This function generates policy baskets and calculates payoffs for both moderate and
+    cherry-picking strategies across multiple simulations. It handles cases where no
+    palatable policies exist by setting M(B) = C(B).
+
+    Parameters
+    ----------
+    num_simulations : int
+        Number of Monte Carlo simulations to run.
+    K : int
+        Number of policies in each basket.
+    theta : float
+        Responder's threshold for acceptable policies. Policies ≤ theta are palatable.
+    dist_name : int
+        Distribution identifier (0=exponential, 1=poisson, 2=uniform).
+    scale : float, default=1.0
+        Scale parameter for exponential distribution.
+    lam : float, default=1.0
+        Lambda parameter for Poisson distribution.
+    low : float, default=0.0
+        Lower bound for uniform distribution.
+    high : float, default=1.0
+        Upper bound for uniform distribution.
+
+    Returns
+    -------
+    pi_p_m : np.ndarray
+        Proposer's payoff when choosing moderate strategy (shape: num_simulations,).
+    pi_p_c : np.ndarray
+        Proposer's payoff when choosing cherry-pick strategy (shape: num_simulations,).
+    pi_r_m : np.ndarray
+        Responder's payoff when proposer moderates (shape: num_simulations,).
+    pi_r_c : np.ndarray
+        Responder's payoff when proposer cherry-picks (shape: num_simulations,).
+    q_values : np.ndarray
+        Q-values measuring relative benefit of cherry-picking: (C(B) - M(B)) / M(B).
+
+    Notes
+    -----
+    - Uses Numba's parallel processing for performance optimization.
+    - M(B) = max{policy ∈ basket : policy ≤ theta}, or C(B) if no palatable policies.
+    - C(B) = max{policy ∈ basket}.
+    - Q-value is set to 0 when M(B) = 0 or C(B) = M(B).
     """
     # Pre-allocate all arrays
     pi_p_m = np.empty(num_simulations, dtype=np.float32)
@@ -72,7 +114,32 @@ def process_all_simulations_numba(
 @numba.jit(nopython=True)
 def calculate_Pi_R_numba(q_values, pi_r_m, pi_r_c, q_threshold):
     """
-    Fast calculation of Pi_R for a given q threshold.
+    Calculate the expected responder payoff for a given Q-threshold strategy.
+
+    This function implements the responder's expected payoff when the proposer uses
+    a threshold strategy: moderate if Q ≤ q_threshold, cherry-pick otherwise.
+
+    Parameters
+    ----------
+    q_values : np.ndarray
+        Q-values from simulations measuring cherry-picking benefit.
+    pi_r_m : np.ndarray
+        Responder payoffs when proposer moderates.
+    pi_r_c : np.ndarray
+        Responder payoffs when proposer cherry-picks.
+    q_threshold : float
+        Threshold value for proposer's decision rule.
+
+    Returns
+    -------
+    float
+        Average expected payoff for the responder across all simulations.
+
+    Notes
+    -----
+    The proposer's strategy is:
+    - If Q ≤ q_threshold: choose moderate policy → responder gets pi_r_m
+    - If Q > q_threshold: choose cherry-pick → responder gets pi_r_c
     """
     total_payoff = 0.0
     n = len(q_values)
@@ -91,7 +158,43 @@ def calculate_welfare_numba(
     lamb, alpha_star, q_star, q_values, pi_p_m, pi_p_c, pi_r_m, pi_r_c
 ):
     """
-    Calculates the total expected payoffs for both players in one pass.
+    Calculate equilibrium welfare (expected payoffs) for both players.
+
+    Computes the expected payoffs considering the equilibrium strategies and
+    information structure. Accounts for informed/uninformed responders and their
+    acceptance decisions.
+
+    Parameters
+    ----------
+    lamb : float
+        Probability that responder is informed (knows if cherry-picking occurred).
+    alpha_star : float or None
+        Equilibrium acceptance probability for uninformed responder.
+        None is treated as 0.
+    q_star : float
+        Equilibrium Q-threshold for proposer's strategy.
+    q_values : np.ndarray
+        Q-values from simulations.
+    pi_p_m : np.ndarray
+        Proposer payoffs when moderating.
+    pi_p_c : np.ndarray
+        Proposer payoffs when cherry-picking.
+    pi_r_m : np.ndarray
+        Responder payoffs when proposer moderates.
+    pi_r_c : np.ndarray
+        Responder payoffs when proposer cherry-picks.
+
+    Returns
+    -------
+    tuple[float, float]
+        (proposer_expected_payoff, responder_expected_payoff)
+
+    Notes
+    -----
+    Acceptance logic:
+    - Informed responder: Accepts if payoff ≥ 0 (knows the true action)
+    - Uninformed responder: Accepts with probability alpha_star
+    - Total acceptance prob = lamb * (informed acceptance) + (1-lamb) * alpha_star
     """
     total_proposer_payoff = 0.0
     total_responder_payoff = 0.0
@@ -136,7 +239,46 @@ def calculate_welfare_numba(
 
 class CherryPickingModel:
     """
-    Optimized version of the Cherry-Picking Model with improved performance.
+    A game-theoretic model of strategic policy selection with information asymmetry.
+
+    This model analyzes interactions between a Proposer who selects policies from a
+    basket and a Responder who decides whether to accept. The Proposer can either
+    moderate (choose the best acceptable policy) or cherry-pick (choose the best
+    policy regardless of acceptability).
+
+    Parameters
+    ----------
+    K : int
+        Number of policies in each basket.
+    lamb : float
+        Probability that the responder is informed (0 ≤ lamb ≤ 1).
+    theta : float
+        Responder's threshold for acceptable policies.
+    distribution_name : str
+        Name of the distribution ('exponential', 'poisson', or 'uniform').
+    dist_params : dict
+        Parameters for the chosen distribution:
+        - exponential: {'scale': float}
+        - poisson: {'lam': float}
+        - uniform: {'low': float, 'high': float}
+
+    Attributes
+    ----------
+    simulation_arrays : dict or None
+        Stores simulation results after running Monte Carlo.
+    equilibrium_results : dict or None
+        Stores equilibrium analysis results.
+
+    Examples
+    --------
+    >>> model = CherryPickingModel(
+    ...     K=5, lamb=0.3, theta=10,
+    ...     distribution_name='exponential',
+    ...     dist_params={'scale': 2.0}
+    ... )
+    >>> results = model.solve_and_analyze(num_simulations=1000000)
+    >>> print(f"Equilibrium case: {results['case']}")
+    >>> print(f"q* = {results['q_star']:.3f}, α* = {results['alpha_star']:.3f}")
     """
 
     DISTRIBUTIONS = {
@@ -146,6 +288,27 @@ class CherryPickingModel:
     }
 
     def __init__(self, K, lamb, theta, distribution_name, dist_params):
+        """
+        Initialize the Cherry-Picking Model with game parameters.
+
+        Parameters
+        ----------
+        K : int
+            Number of policies in each basket.
+        lamb : float
+            Probability that responder is informed (0 ≤ lamb ≤ 1).
+        theta : float
+            Responder's threshold for acceptable policies.
+        distribution_name : str
+            Name of the distribution for generating policies.
+        dist_params : dict
+            Parameters specific to the chosen distribution.
+
+        Raises
+        ------
+        ValueError
+            If distribution_name is not supported or required parameters are missing.
+        """
         self.K = K
         self.lamb = lamb
         self.theta = theta
@@ -168,7 +331,22 @@ class CherryPickingModel:
 
     def run_monte_carlo_numba(self, num_simulations=1000000):
         """
-        Numba version that generates and processes everything in Numba.
+        Execute Monte Carlo simulations using Numba-optimized functions.
+
+        Generates policy baskets and calculates payoffs for all possible strategies
+        across the specified number of simulations. Results are stored in memory
+        as raw arrays for efficient access.
+
+        Parameters
+        ----------
+        num_simulations : int, default=1000000
+            Number of Monte Carlo iterations to perform.
+
+        Notes
+        -----
+        - Uses parallel processing via Numba for performance.
+        - Stores results in self.simulation_arrays as a dictionary of arrays.
+        - Keys: 'pi_p_m', 'pi_p_c', 'pi_r_m', 'pi_r_c', 'q'
         """
 
         # Extract distribution parameters
@@ -193,7 +371,25 @@ class CherryPickingModel:
 
     def calculate_Pi_R(self, q):
         """
-        Fast calculation using raw arrays and Numba.
+        Calculate expected responder payoff for a given Q-threshold.
+
+        Wrapper method that interfaces with the Numba-compiled calculation function.
+        Used primarily for finding the equilibrium Q-value.
+
+        Parameters
+        ----------
+        q : float
+            Q-threshold value to evaluate.
+
+        Returns
+        -------
+        float
+            Expected responder payoff under the given threshold.
+
+        Raises
+        ------
+        Exception
+            If Monte Carlo simulation has not been run yet.
         """
         if self.simulation_arrays is None:
             raise Exception("Please run the Monte Carlo simulation first.")
@@ -207,7 +403,25 @@ class CherryPickingModel:
 
     def solve_for_q_star(self, bracket=[0, 100000]):
         """
-        Finds the equilibrium q* using the fast Pi_R calculation.
+        Find the equilibrium Q-threshold using root-finding methods.
+
+        Solves for q* where Pi_R(q*) = 0, representing the point where the responder
+        is indifferent between accepting and rejecting in expectation.
+
+        Parameters
+        ----------
+        bracket : list, default=[0, 100000]
+            Search interval [lower, upper] for root finding.
+
+        Returns
+        -------
+        float
+            Equilibrium Q-threshold (q*) where responder's expected payoff equals zero.
+
+        Notes
+        -----
+        Uses Brent's method (brentq) for robust root finding. The bracket should be
+        chosen to ensure the zero-crossing is within the interval.
         """
         # try:
         #     q_star = brentq(self.calculate_Pi_R, a=bracket[0], b=bracket[1])
@@ -219,7 +433,22 @@ class CherryPickingModel:
 
     def get_simulation_dataframe(self):
         """
-        Convert simulation arrays to DataFrame only when needed.
+        Convert simulation arrays to pandas DataFrame.
+
+        Provides a convenient DataFrame representation of simulation results for
+        analysis and visualization. Only converts when explicitly requested to
+        maintain performance.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns: 'pi_p_m', 'pi_p_c', 'pi_r_m', 'pi_r_c', 'q'
+            Each row represents one simulation iteration.
+
+        Raises
+        ------
+        Exception
+            If Monte Carlo simulation has not been run yet.
         """
         if self.simulation_arrays is None:
             raise Exception("Please run the Monte Carlo simulation first.")
@@ -228,7 +457,48 @@ class CherryPickingModel:
 
     def solve_and_analyze(self, num_simulations=1000000):
         """
-        Orchestrates the full equilibrium solving process.
+        Orchestrate complete equilibrium analysis of the model.
+
+        Performs Monte Carlo simulation, determines equilibrium case type, solves for
+        equilibrium parameters (q*, α*), and calculates welfare metrics. This is the
+        main method for model analysis.
+
+        Parameters
+        ----------
+        num_simulations : int, default=1000000
+            Number of Monte Carlo iterations to perform.
+
+        Returns
+        -------
+        dict
+            Equilibrium results containing:
+            - case : str
+                Equilibrium type ('Case A: Always Bad', 'Case B: Always Good',
+                'Case C: Interesting Case', 'Case D: Always Informed')
+            - q_star : float
+                Equilibrium Q-threshold
+            - alpha_star : float or None
+                Equilibrium acceptance probability for uninformed responder
+            - E_pi_r_m : float
+                Expected responder payoff when proposer moderates
+            - E_pi_r_c : float
+                Expected responder payoff when proposer cherry-picks
+            - proposer_expected_payoff : float
+                Proposer's equilibrium expected payoff
+            - responder_expected_payoff : float
+                Responder's equilibrium expected payoff
+            - percent_of_moderate_policies : float
+                Proportion of cases where proposer moderates in equilibrium
+            - elapsed_time : float
+                Computation time in seconds
+
+        Notes
+        -----
+        Case determination logic:
+        - Case A: E[π_r^m] ≤ 0 → No policies acceptable
+        - Case B: E[π_r^c] ≥ 0 → All policies acceptable
+        - Case C: Mixed equilibrium requiring q* solution
+        - Case D: λ = 1 → Perfect information
         """
 
         start_time = time.time()
@@ -281,8 +551,34 @@ class CherryPickingModel:
 
     def calculate_welfare(self):
         """
-        Calculates the ex-ante expected payoffs for both players in equilibrium.
-        This method uses a Numba-compiled helper for maximum performance.
+        Calculate ex-ante expected payoffs for both players in equilibrium.
+
+        Uses the solved equilibrium parameters to compute welfare metrics, including
+        the expected payoffs for proposer and responder, and the frequency of
+        moderation versus cherry-picking.
+
+        Returns
+        -------
+        dict
+            Welfare metrics containing:
+            - proposer_expected_payoff : float
+                Expected payoff for the proposer in equilibrium
+            - responder_expected_payoff : float
+                Expected payoff for the responder in equilibrium
+            - percent_of_moderate_policies : float
+                Proportion of simulations where proposer chooses to moderate
+
+        Raises
+        ------
+        Exception
+            If solve_and_analyze() has not been called to determine equilibrium.
+
+        Notes
+        -----
+        Welfare calculation accounts for:
+        - Information structure (informed vs uninformed responders)
+        - Equilibrium strategies (q*, α*)
+        - Acceptance probabilities based on payoff signs
         """
         if not self.equilibrium_results:
             raise Exception(

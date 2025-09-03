@@ -15,8 +15,8 @@ MONGOCLIENT_LOCAL = MongoClient(
 
 MONGOCLIENT = MongoClient(
     "mongodb+srv://cluster0.ni3d51g.mongodb.net",
-    username=os.environ.get("MONGO_USERNAME"),
-    password=os.environ.get("MONGO_PASSWORD"),
+    username=os.environ.get("MONGODB_USERNAME"),
+    password=os.environ.get("MONGODB_PASSWORD"),
     serverSelectionTimeoutMS=30000,  # 30 seconds
     socketTimeoutMS=30000,  # 30 seconds
     connectTimeoutMS=30000,  # 30 seconds
